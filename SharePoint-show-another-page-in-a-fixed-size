@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PLACEHOLDER.aspx – right side trimmed 12 %</title>
+<style>
+  /* Visible “window” – full width, 720 px tall */
+  .clip-box {
+    width: 100%;               /* full‑width container */
+    max-width: none;           /* no cap */
+    height: 720px;             /* tall enough so the bottom isn’t cut off */
+    overflow: hidden;          /* hide anything outside the box */
+    position: relative;
+    margin: 0 auto;             /* centre horizontally (no effect at 100 % width) */
+    border: none;              /* <-- border removed (or use 0.5px solid #999 for a thin line) */
+  }
+
+  /* The iframe that loads the whole SharePoint page */
+  .clip-box iframe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;               /* fills the .clip-box width */
+    height: 2500px;            /* tall enough for the full page */
+    border: none;
+    /*
+       • translateY(-216px) – keeps the vertical slice you liked
+       • translateX(-12%)   – shift the page left by 12 % of its width,
+                              clipping the right‑hand side by ~12 %.
+    */
+    transform: translateY(-216px) translateX(-12%);
+    overflow: hidden;
+  }
+</style>
+</head>
+<body>
+
+<div class="clip-box">
+  <iframe src="PLACEHOLDER"
+          sandbox="allow-scripts allow-same-origin">
+  </iframe>
+</div>
+
+</body>
+</html>
