@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --sp-blue: #0072C6;
+            --sp-blue-dark: #005A9E;
+            --sp-border: #DFDFDF;
+            --sp-hover: #F4F4F4;
+            --sp-selected: #CCE3F4;
+            --sp-red: #A4262C;
+        }
+
+        .sp-app-container {
+            width: 100%;
+            max-width: 1100px;
+            height: 560px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            margin: 20px auto;
+            color: #333;
+        }
+
+        .sp-content-header { padding: 15px 20px 10px 20px; flex-shrink: 0; }
+        .sp-header { font-weight: 300; font-size: 22px; margin: 0 0 10px 0; }
+        .sp-ribbon { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .counter-block { line-height: 1.35; flex-shrink: 0; }
+        #itemCounter { font-size: 13px; }
+        #sizeCounter { font-size: 11px; color: #666; }
+
+        .search-stack { display: flex; flex-direction: column; gap: 4px; margin-left: auto; }
+        .search-container { display: flex; align-items: center; border: 1px solid #ababab; height: 26px; width: 220px; background: #fff; }
+        .search-container input { border: none; outline: none; flex-grow: 1; min-width: 0; padding: 0 8px; font-size: 13px; background: transparent; font-family: inherit; }
+        .search-go {
+            display: flex; align-items: center; justify-content: center; width: 26px; height: 24px; flex-shrink: 0;
+            border: none; border-left: 1px solid var(--sp-border); background: #fff; color: var(--sp-blue); cursor: pointer;
+        }
+        .search-go:hover { background: var(--sp-hover); }
+        .search-go:disabled { color: #aaa; cursor: default; }
+        .content-status { font-size: 10px; color: #666; min-height: 12px; }
+
+        .filter-group { display: flex; gap: 8px; align-items: center; margin-left: 20px; }
+        .filter-group select, .filter-group input[type=date] {
+            border: 1px solid #ccc; font-size: 12px; padding: 2px 4px; border-radius: 2px;
+            max-width: 140px; font-family: inherit; color: inherit; background: #fff;
+        }
+        .combo { position: relative; }
+        .combo-btn {
+            display: flex; align-items: center; gap: 4px; max-width: 150px; height: 22px; padding: 0 4px;
+            border: 1px solid #ccc; border-radius: 2px; background: #fff; font: inherit; font-size: 12px; color: #333; cursor: pointer;
+        }
+        .combo-btn:hover { border-color: #999; }
+        .combo-btn.on { border-color: var(--sp-blue); color: var(--sp-blue); }
+        .combo-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .combo-caret { font-size: 9px; color: #666; }
+        .combo-pop {
+            display: none; position: fixed; width: 224px; background: #fff;
+            border: 1px solid #ababab; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 1000;
+        }
+        .combo-pop.on { display: block; }
+        .combo-search { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--sp-border); padding: 5px 8px; font: inherit; font-size: 12px; outline: none; }
+        .combo-list { max-height: 240px; overflow-y: auto; }
+        .combo-opt { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+        .combo-opt.active { background: var(--sp-hover); }
+        .combo-opt.sel { color: var(--sp-blue); font-weight: 600; }
+        .combo-opt > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .combo-count { color: #999; font-size: 11px; flex-shrink: 0; }
+        .combo-empty { padding: 6px 8px; font-size: 12px; color: #999; }
+
+        #customRange { display: none; gap: 4px; align-items: center; font-size: 11px; color: #666; }
+        #customRange.on { display: flex; }
+
+        .btn-icon {
+            background: #fff; border: 1px solid #ccc; border-radius: 2px; width: 26px; height: 26px;
+            cursor: pointer; font-size: 14px; line-height: 1; color: #444; flex-shrink: 0;
+        }
+        .btn-icon:hover { background: var(--sp-hover); border-color: #999; }
+
+        .settings-panel {
+            position: fixed; display: none; width: 240px; max-height: 80vh; overflow-y: auto;
+            background: #fff; border: 1px solid #ababab; box-shadow: 0 4px 14px rgba(0,0,0,.18);
+            z-index: 1000; padding: 10px 12px; font-size: 12px;
+        }
+        .settings-panel.on { display: block; }
+        .settings-panel h4 { margin: 0 0 6px 0; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #777; font-weight: 600; }
+        .settings-panel section + section { margin-top: 10px; border-top: 1px solid var(--sp-border); padding-top: 10px; }
+        .settings-panel label { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; }
+        .settings-panel label.row { justify-content: space-between; }
+        .settings-panel select { border: 1px solid #ccc; font-size: 12px; padding: 1px 3px; }
+        .settings-actions { display: flex; gap: 6px; margin-top: 10px; }
+        .settings-actions button { flex: 1; background: #fff; border: 1px solid #ccc; padding: 4px; cursor: pointer; font-size: 11px; }
+        .settings-actions button:hover { background: var(--sp-hover); }
+        .settings-note { margin-top: 8px; font-size: 10px; color: #999; }
+
+        .selection-bar {
+            display: none; align-items: center; gap: 12px; margin: 0 20px 8px 20px; padding: 5px 10px;
+            background: var(--sp-selected); border-left: 3px solid var(--sp-blue); font-size: 12px;
+        }
+        .selection-bar.on { display: flex; }
+        .selection-bar .spacer { flex-grow: 1; }
+        .cmd-btn {
+            display: inline-flex; align-items: center; gap: 5px; background: #fff; border: 1px solid #ababab;
+            padding: 3px 10px; font-size: 12px; font-family: inherit; color: #333; cursor: pointer; border-radius: 2px;
+        }
+        .cmd-btn:hover { background: var(--sp-hover); border-color: #666; }
+        .cmd-btn:disabled { opacity: .5; cursor: default; }
+        .cmd-btn.danger { color: var(--sp-red); border-color: #c9a2a5; }
+        .cmd-btn.danger:hover { background: #FDF3F4; border-color: var(--sp-red); }
+        .link-btn { color: var(--sp-blue); cursor: pointer; text-decoration: none; }
+        .link-btn:hover { text-decoration: underline; }
+
+        .dlg-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 2000;
+            align-items: center; justify-content: center;
+        }
+        .dlg-overlay.on { display: flex; }
+        .dlg {
+            width: 440px; max-width: 92vw; background: #fff; border: 1px solid #ababab;
+            box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: 13px;
+        }
+        .dlg-title {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; font-size: 18px; font-weight: 300; border-bottom: 1px solid var(--sp-border);
+        }
+        .dlg-x { background: none; border: none; font-size: 15px; color: #666; cursor: pointer; line-height: 1; }
+        .dlg-x:hover { color: #000; }
+        .dlg-body { padding: 14px 16px; max-height: 46vh; overflow-y: auto; }
+        .dlg-body p { margin: 0 0 8px 0; }
+        .dlg-list { margin: 0; padding: 0; list-style: none; font-size: 12px; color: #444; }
+        .dlg-list li { padding: 2px 0; border-bottom: 1px solid #f0f0f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dlg-list li .why { color: var(--sp-red); }
+        .dlg-foot { padding: 10px 16px; border-top: 1px solid var(--sp-border); display: flex; gap: 8px; justify-content: flex-end; }
+        .btn-primary { background: var(--sp-blue); border: 1px solid var(--sp-blue); color: #fff; padding: 4px 16px; font-family: inherit; font-size: 12px; cursor: pointer; }
+        .btn-primary:hover { background: var(--sp-blue-dark); }
+        .btn-primary:disabled { opacity: .6; cursor: default; }
+        .btn-std { background: #fff; border: 1px solid #ababab; padding: 4px 16px; font-family: inherit; font-size: 12px; cursor: pointer; }
+        .btn-std:hover { background: var(--sp-hover); }
+
+        #loadingProgress { padding: 0 20px 10px; display: none; }
+        .progress-track { width: 100%; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }
+        #progressFill { width: 0%; height: 100%; background: var(--sp-blue); transition: width 0.2s ease-out; }
+        .progress-status { font-size: 11px; color: #666; margin-top: 4px; display: flex; justify-content: space-between; }
+
+        .sp-grid-wrapper { flex-grow: 1; overflow: auto; width: 100%; position: relative; min-width: 0; }
+
+        .sp-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+
+        .sp-table th, .sp-table td {
+            box-sizing: border-box;
+            padding: 4px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sp-table th {
+            position: sticky; top: 0; background: #fff; z-index: 5;
+            text-align: left; border-bottom: 1px solid #ababab; user-select: none;
+        }
+        .sp-table th[data-col] { cursor: pointer; }
+        .sp-table td { border-bottom: 1px solid #eee; }
+        .sp-table tbody tr:hover td { background-color: var(--sp-hover); }
+        .sp-table tbody tr.is-selected td { background-color: var(--sp-selected); }
+        .doc-link { color: var(--sp-blue); text-decoration: none; }
+
+        .th-label { display: inline-block; max-width: calc(100% - 14px); overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+        .sort-arrow { color: var(--sp-blue); font-size: 9px; margin-left: 3px; }
+
+        .col-grip { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; touch-action: none; z-index: 6; }
+        .col-grip:hover, .col-grip.dragging { background: linear-gradient(to right, transparent 3px, var(--sp-blue) 3px, var(--sp-blue) 4px, transparent 4px); }
+        body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+        .doc-icon { display: block; width: 16px; height: 16px; margin: auto; }
+
+        .check-box {
+            width: 16px; height: 16px; border: 1px solid #666; display: flex;
+            align-items: center; justify-content: center; cursor: pointer;
+            user-select: none; margin: auto; background: #fff; font-size: 10px;
+        }
+        .check-mark, .check-dash { display: none; pointer-events: none; }
+        .check-mark { color: #fff; }
+        .check-dash { width: 8px; height: 2px; background: #fff; }
+        tr.is-selected .check-box, .check-box.checked, .check-box.partial { background: var(--sp-blue); border-color: var(--sp-blue); }
+        tr.is-selected .check-mark, .check-box.checked .check-mark { display: block; }
+        .check-box.partial .check-dash { display: block; }
+        .check-box.partial .check-mark { display: none; }
+
+        .col-select { width: 30px; }
+        .col-icon { width: 28px; }
+        .col-name { width: 280px; }
+        .col-type { width: 60px; }
+        .col-size { width: 80px; }
+        .col-site { width: 140px; }
+        .col-library { width: 140px; }
+        .col-date { width: 110px; }
+        .col-user { width: 110px; }
+        .num { text-align: right; }
+
+        .sp-footer { padding: 8px 20px; border-top: 1px solid var(--sp-border); display: flex; align-items: center; justify-content: space-between; font-size: 12px; flex-shrink: 0; }
+        .btn-page { background: #fff; border: 1px solid #ccc; padding: 2px 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="sp-app-container">
+        <div class="sp-content-header">
+            <h1 class="sp-header">Recently Modified Documents</h1>
+            <div class="sp-ribbon">
+                <div class="counter-block">
+                    <div id="itemCounter">Total Documents: 0</div>
+                    <div id="sizeCounter">Total size: 0 B</div>
+                </div>
+                <div class="filter-group">
+                    <div id="filterType"></div>
+                    <div id="filterAuthor"></div>
+                    <div id="filterEditor"></div>
+                    <select id="filterDate" onchange="app.onDateModeChange()">
+                        <option value="">Any Time</option>
+                        <option value="1">Last 24 hours</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="custom">Custom range...</option>
+                    </select>
+                    <span id="customRange">
+                        <input type="date" id="dateFrom" onchange="app.onFilterChange()" title="Modified from">
+                        <span>&ndash;</span>
+                        <input type="date" id="dateTo" onchange="app.onFilterChange()" title="Modified to">
+                    </span>
+                </div>
+                <div class="search-stack">
+                    <div class="search-container">
+                        <input type="text" id="fileSearch" placeholder="Search by filename..." oninput="app.handleSearch()">
+                    </div>
+                    <div class="search-container">
+                        <input type="search" id="contentSearch" placeholder="Search inside files...">
+                        <button type="button" id="btnContentSearch" class="search-go" title="Search file contents (Enter)">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2L14 14" stroke-linecap="round"/></svg>
+                        </button>
+                    </div>
+                    <div id="contentStatus" class="content-status"></div>
+                </div>
+                <button type="button" id="btnSettings" class="btn-icon" title="Settings">&#9881;</button>
+            </div>
+
+            <div id="settingsPanel" class="settings-panel">
+                <section>
+                    <h4>Columns</h4>
+                    <div id="colToggles"></div>
+                </section>
+                <section>
+                    <h4>Display</h4>
+                    <label class="row">Rows per page
+                        <select id="setPageSize">
+                            <option>15</option><option>25</option><option>50</option><option>100</option><option>250</option>
+                        </select>
+                    </label>
+                    <label><input type="checkbox" id="setRelative"> Relative timestamps</label>
+                </section>
+                <section>
+                    <h4>Data</h4>
+                    <label><input type="checkbox" id="setSubsites"> Include subsites</label>
+                    <label><input type="checkbox" id="setPermanent"> Delete permanently (skip Recycle Bin)</label>
+                    <div class="settings-actions">
+                        <button type="button" id="btnRescan">Rescan libraries</button>
+                        <button type="button" id="btnResetCfg">Reset settings</button>
+                    </div>
+                    <div class="settings-note">Columns, widths, sort and display preferences are saved in this browser.</div>
+                </section>
+            </div>
+        </div>
+
+        <div id="selectionBar" class="selection-bar">
+            <span id="selectionInfo"></span>
+            <a id="selectAllFiltered" class="link-btn"></a>
+            <span class="spacer"></span>
+            <button type="button" id="btnDelete" class="cmd-btn danger">
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M6 1h4v1h4v2H2V2h4V1zM3 5h10l-.8 10H3.8L3 5zm3 2v6h1V7H6zm3 0v6h1V7H9z" fill="currentColor"/></svg>
+                Delete
+            </button>
+            <button type="button" id="btnClearSel" class="cmd-btn">Clear selection</button>
+        </div>
+
+        <div id="loadingProgress">
+            <div class="progress-track"><div id="progressFill"></div></div>
+            <div class="progress-status">
+                <span id="progressText">Finding documents...</span>
+                <span>Found Documents: <b id="liveFileCount">0</b></span>
+            </div>
+        </div>
+
+        <div class="sp-grid-wrapper" id="docTableWrapper"></div>
+
+        <div class="sp-footer">
+            <div id="statusLabel">Ready</div>
+            <div class="pagination-ctrl">
+                <button type="button" id="pPrev" class="btn-page">Previous</button>
+                <span>Page <input type="number" id="pageJump" style="width:40px" value="1" min="1"> <span id="pageTotalLabel">of 1</span></span>
+                <button type="button" id="pNext" class="btn-page">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dlgOverlay" class="dlg-overlay">
+        <div class="dlg" role="dialog" aria-modal="true">
+            <div class="dlg-title"><span id="dlgTitle"></span><button type="button" class="dlg-x" id="dlgClose">&#10005;</button></div>
+            <div class="dlg-body">
+                <p id="dlgMsg"></p>
+                <ul id="dlgList" class="dlg-list"></ul>
+            </div>
+            <div class="dlg-foot">
+                <button type="button" id="dlgCancel" class="btn-std">Cancel</button>
+                <button type="button" id="dlgOk" class="btn-primary">Delete</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const OFFICE_EXT = new Set(["doc","docx","docm","dot","dotx","xls","xlsx","xlsm","xlsb","ppt","pptx","pptm","ppsx","vsd","vsdx","one"]);
+
+const TYPE_COLORS = {
+    doc:"#2B579A", docx:"#2B579A", docm:"#2B579A", dot:"#2B579A", dotx:"#2B579A", rtf:"#2B579A", odt:"#2B579A",
+    xls:"#217346", xlsx:"#217346", xlsm:"#217346", xlsb:"#217346", csv:"#217346", ods:"#217346",
+    ppt:"#D24726", pptx:"#D24726", pptm:"#D24726", pps:"#D24726", ppsx:"#D24726", odp:"#D24726",
+    pdf:"#A4262C",
+    one:"#7719AA", onetoc2:"#7719AA",
+    vsd:"#3955A3", vsdx:"#3955A3", vssx:"#3955A3",
+    mpp:"#31752F",
+    msg:"#0072C6", eml:"#0072C6",
+    png:"#0E7C7B", jpg:"#0E7C7B", jpeg:"#0E7C7B", gif:"#0E7C7B", bmp:"#0E7C7B", tif:"#0E7C7B", tiff:"#0E7C7B", svg:"#0E7C7B", webp:"#0E7C7B", heic:"#0E7C7B",
+    zip:"#B08A00", rar:"#B08A00", "7z":"#B08A00", tar:"#B08A00", gz:"#B08A00", cab:"#B08A00",
+    mp4:"#8764B8", avi:"#8764B8", mov:"#8764B8", wmv:"#8764B8", mkv:"#8764B8",
+    mp3:"#C239B3", wav:"#C239B3", wma:"#C239B3",
+    txt:"#5D5D5D", log:"#5D5D5D", md:"#5D5D5D", ini:"#5D5D5D",
+    xml:"#4F6BED", json:"#4F6BED", html:"#4F6BED", htm:"#4F6BED", js:"#4F6BED", css:"#4F6BED", sql:"#4F6BED", ps1:"#4F6BED", py:"#4F6BED", cs:"#4F6BED", yml:"#4F6BED", yaml:"#4F6BED",
+    exe:"#6E6E6E", dll:"#6E6E6E", msi:"#6E6E6E"
+};
+
+const CFG_KEY = "spModifiedDocs.cfg.v1";
+const DEFAULT_CFG = {
+    hidden: ["ext", "library"],
+    widths: {},
+    pageSize: 15,
+    relativeTime: true,
+    includeSubsites: true,
+    permanentDelete: false,
+    sortCol: "modified",
+    sortDir: "desc"
+};
+
+/* localStorage wrapper that degrades to defaults when storage is blocked by policy or private mode. */
+const cfgStore = {
+    load() {
+        try { return Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem(CFG_KEY)) || {}); }
+        catch (e) { return Object.assign({}, DEFAULT_CFG, { widths: {} }); }
+    },
+    save(cfg) { try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch (e) { /* storage unavailable */ } },
+    clear() { try { localStorage.removeItem(CFG_KEY); } catch (e) { /* storage unavailable */ } }
+};
+
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+/* Type-ahead replacement for a long <select>: a button plus a fixed position popup holding a
+   filter box and a keyboard navigable option list. Fixed so the container's overflow can't clip it. */
+class FilterCombo {
+    constructor(mount, allLabel, onChange) {
+        this.allLabel = allLabel;
+        this.onChange = onChange;
+        this.value = "";
+        this.entries = [];
+        this.active = 0;
+        this.mount = mount;
+
+        mount.className = "combo";
+        mount.innerHTML = `
+            <button type="button" class="combo-btn"><span class="combo-text"></span><span class="combo-caret">&#9662;</span></button>
+            <div class="combo-pop">
+                <input type="text" class="combo-search" placeholder="Type to filter...">
+                <div class="combo-list"></div>
+            </div>`;
+        this.btn = mount.querySelector(".combo-btn");
+        this.text = mount.querySelector(".combo-text");
+        this.pop = mount.querySelector(".combo-pop");
+        this.search = mount.querySelector(".combo-search");
+        this.list = mount.querySelector(".combo-list");
+
+        this.btn.onclick = (e) => { e.stopPropagation(); this.toggle(); };
+        this.search.oninput = () => this.renderList();
+        this.search.onkeydown = (e) => this.onKey(e);
+        this.list.onclick = (e) => {
+            const opt = e.target.closest("[data-value]");
+            if (opt) this.pick(opt.dataset.value);
+        };
+        document.addEventListener("click", (e) => { if (!mount.contains(e.target)) this.close(); });
+        this.render();
+    }
+
+    setEntries(entries) {
+        this.entries = entries;
+        if (this.value && !entries.some(e => e.value === this.value)) this.value = "";
+        this.render();
+    }
+
+    render() {
+        const hit = this.entries.find(e => e.value === this.value);
+        this.text.textContent = hit ? hit.label : this.allLabel;
+        this.btn.title = this.text.textContent;
+        this.btn.classList.toggle("on", !!this.value);
+    }
+
+    renderList() {
+        const q = this.search.value.toLowerCase();
+        const rows = this.entries.filter(e => !q || e.label.toLowerCase().includes(q));
+        this.list.innerHTML =
+            `<div class="combo-opt" data-value=""><span>${esc(this.allLabel)}</span></div>`
+            + rows.map(e => `<div class="combo-opt${e.value === this.value ? " sel" : ""}" data-value="${esc(e.value)}">`
+                + `<span>${esc(e.label)}</span><span class="combo-count">${e.count}</span></div>`).join("")
+            + (rows.length ? "" : `<div class="combo-empty">No matches</div>`);
+        this.setActive(q && rows.length ? 1 : 0);
+    }
+
+    setActive(i) {
+        const opts = [...this.list.querySelectorAll("[data-value]")];
+        this.active = Math.max(0, Math.min(opts.length - 1, i));
+        opts.forEach((o, idx) => o.classList.toggle("active", idx === this.active));
+        if (opts[this.active]) opts[this.active].scrollIntoView({ block: "nearest" });
+    }
+
+    onKey(e) {
+        if (e.key === "Escape") { this.close(); return; }
+        const opts = [...this.list.querySelectorAll("[data-value]")];
+        if (e.key === "Enter") {
+            e.preventDefault();
+            if (opts[this.active]) this.pick(opts[this.active].dataset.value);
+            return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        this.setActive(this.active + (e.key === "ArrowDown" ? 1 : -1));
+    }
+
+    toggle() { this.pop.classList.contains("on") ? this.close() : this.open(); }
+
+    open() {
+        document.querySelectorAll(".combo-pop.on").forEach(p => p.classList.remove("on"));
+        const r = this.btn.getBoundingClientRect();
+        this.pop.style.top = (r.bottom + 2) + "px";
+        this.pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 232)) + "px";
+        this.pop.classList.add("on");
+        this.search.value = "";
+        this.renderList();
+        this.search.focus();
+    }
+
+    close() { this.pop.classList.remove("on"); }
+
+    pick(v) {
+        this.value = v;
+        this.close();
+        this.render();
+        this.onChange();
+    }
+}
+
+class SPDataService {
+    constructor() {
+        const ctx = window._spPageContextInfo || {};
+        this.siteRoot = ctx.siteAbsoluteUrl || "";
+        this.webRoot = ctx.webAbsoluteUrl || "";
+        this.webTitle = ctx.webTitle || "Root";
+        this.digests = new Map();
+    }
+
+    async getRequest(url) {
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.setRequestHeader("Accept", "application/json;odata=verbose");
+            xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300 ? JSON.parse(xhr.responseText) : null);
+            xhr.onerror = () => resolve(null);
+            xhr.send();
+        });
+    }
+
+    async postRequest(url, headers) {
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", url, true);
+            xhr.setRequestHeader("Accept", "application/json;odata=verbose");
+            Object.keys(headers || {}).forEach(k => xhr.setRequestHeader(k, headers[k]));
+            xhr.onload = () => {
+                let data = null;
+                try { data = JSON.parse(xhr.responseText); } catch (e) { /* empty body on 204 */ }
+                resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+            };
+            xhr.onerror = () => resolve({ ok: false, status: 0, data: null });
+            xhr.send();
+        });
+    }
+
+    /* Form digests are per-web and time limited, so they are cached per site and renewed on expiry. */
+    async getDigest(webUrl) {
+        const hit = this.digests.get(webUrl);
+        if (hit && hit.expires > Date.now()) return hit.value;
+
+        const res = await this.postRequest(`${webUrl}/_api/contextinfo`, {});
+        const info = res.data?.d?.GetContextWebInformation;
+        if (!info) return null;
+        this.digests.set(webUrl, {
+            value: info.FormDigestValue,
+            expires: Date.now() + Math.max(60, (info.FormDigestTimeoutSeconds || 1800) - 60) * 1000
+        });
+        return info.FormDigestValue;
+    }
+
+    /* Recycles (or hard deletes) one file, retrying by server relative URL when the
+       GetFileById overload is unavailable. */
+    async deleteFile(item, permanent) {
+        const digest = await this.getDigest(item.siteUrl);
+        if (!digest) return { ok: false, reason: "Could not obtain a form digest" };
+
+        const headers = { "X-RequestDigest": digest };
+        if (permanent) { headers["X-HTTP-Method"] = "DELETE"; headers["IF-MATCH"] = "*"; }
+        const verb = permanent ? "" : "/recycle()";
+
+        let res = await this.postRequest(`${item.siteUrl}/_api/web/GetFileById('${item.uniqueId}')${verb}`, headers);
+        if (!res.ok && res.status !== 403 && res.status !== 423) {
+            const path = encodeURIComponent(item.url.replace(/'/g, "''"));
+            res = await this.postRequest(`${item.siteUrl}/_api/web/GetFileByServerRelativeUrl('${path}')${verb}`, headers);
+        }
+        return { ok: res.ok, reason: res.ok ? "" : this.errorText(res) };
+    }
+
+    errorText(res) {
+        const api = res.data?.error?.message?.value;
+        if (res.status === 403) return "Access denied";
+        if (res.status === 404) return "Not found - already deleted?";
+        if (res.status === 423) return "Locked or checked out";
+        return api || `HTTP ${res.status || "no response"}`;
+    }
+
+    /* Full text search over crawled document content. Paged to the search API's 500 row cap and
+       reduced to lower-cased server relative paths so hits can be matched against loaded rows. */
+    async searchContent(terms, maxRows = 2000) {
+        const kql = `${terms.replace(/'/g, "''")} Path:"${this.webRoot}*" IsDocument:1`;
+        const paths = new Set();
+        let total = 0;
+
+        for (let start = 0; start < maxRows; start += 500) {
+            const url = `${this.siteRoot}/_api/search/query?querytext='${encodeURIComponent(kql)}'`
+                + `&selectproperties='Path'&rowlimit=500&startrow=${start}&trimduplicates=false`;
+            const data = await this.getRequest(url);
+            const relevant = data?.d?.query?.PrimaryQueryResult?.RelevantResults;
+            if (!relevant) return start === 0 ? null : { paths, total };
+
+            total = relevant.TotalRows || 0;
+            const rows = relevant.Table?.Rows?.results || [];
+            rows.forEach(r => {
+                const cell = r.Cells.results.find(c => c.Key === "Path");
+                if (cell?.Value) paths.add(this.toServerRelative(cell.Value));
+            });
+            if (rows.length < 500 || start + 500 >= total) break;
+        }
+        return { paths, total };
+    }
+
+    toServerRelative(absUrl) {
+        try { return decodeURIComponent(new URL(absUrl).pathname).toLowerCase(); }
+        catch (e) { return absUrl.toLowerCase(); }
+    }
+
+    /* Enumerates the current web and its subsites via Search, falling back to /_api/web/webs
+       when the search service is unavailable or the index is stale (common on-prem). */
+    async discoverSites(includeSubsites) {
+        const sites = [{ title: this.webTitle, url: this.webRoot }];
+        if (!includeSubsites) return sites;
+
+        const norm = u => u.toLowerCase().replace(/\/$/, "");
+        const query = `'contentclass:STS_Web Path:"${this.webRoot}*"'`;
+        const url = `${this.siteRoot}/_api/search/query?querytext=${query}&selectproperties='Title,Path'&rowlimit=500`;
+
+        const data = await this.getRequest(url);
+        const rows = data?.d?.query?.PrimaryQueryResult?.RelevantResults?.Table?.Rows?.results || [];
+        rows.forEach(r => {
+            const c = r.Cells.results.reduce((acc, val) => { acc[val.Key] = val.Value; return acc; }, {});
+            if (c.Path && norm(c.Path) !== norm(this.webRoot)) sites.push({ title: c.Title || c.Path, url: c.Path });
+        });
+
+        if (sites.length === 1) await this.crawlWebs(this.webRoot, sites);
+        return sites;
+    }
+
+    async crawlWebs(url, acc) {
+        const data = await this.getRequest(`${url}/_api/web/webs?$select=Title,Url`);
+        for (const w of data?.d?.results || []) {
+            acc.push({ title: w.Title, url: w.Url });
+            await this.crawlWebs(w.Url, acc);
+        }
+        return acc;
+    }
+
+    async getLists(siteUrl) {
+        const endpoint = `${siteUrl}/_api/web/lists?$filter=BaseType eq 1 and Hidden eq false&$select=Title,ItemCount`;
+        const data = await this.getRequest(endpoint);
+        return data?.d?.results || [];
+    }
+}
+
+class UIManager {
+    constructor(cfg, persist) {
+        this.cfg = cfg;
+        this.persist = persist;
+        this.elements = {
+            tableWrapper: document.getElementById("docTableWrapper"),
+            counter: document.getElementById("itemCounter"),
+            sizeCounter: document.getElementById("sizeCounter"),
+            status: document.getElementById("statusLabel"),
+            progress: document.getElementById("loadingProgress"),
+            progressFill: document.getElementById("progressFill"),
+            progressText: document.getElementById("progressText"),
+            liveCount: document.getElementById("liveFileCount"),
+            selectionBar: document.getElementById("selectionBar"),
+            selectionInfo: document.getElementById("selectionInfo"),
+            selectAllFiltered: document.getElementById("selectAllFiltered"),
+            btnDelete: document.getElementById("btnDelete")
+        };
+        this.MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+        /* Single source of truth: header markup, width class, sort key and cell renderer per column.
+           `key` is also the id used by the settings panel and by the saved width map. */
+        this.COLUMNS = [
+            { key: "select", label: "Selection box", cls: "col-select",
+              head: `<div class="check-box" id="selectAllBox" title="Select all on this page"><span class="check-mark">&#10003;</span><span class="check-dash"></span></div>`,
+              cell: () => `<div class="check-box"><span class="check-mark">&#10003;</span></div>` },
+            { key: "icon", label: "File icon", cls: "col-icon", head: "",
+              cell: i => this.iconSvg(i.ext) },
+            { key: "name", label: "Name", cls: "col-name", sort: "name",
+              cell: i => `<a class="doc-link" href="${esc(this.docHref(i))}" target="_blank">${esc(i.name)}</a>`, title: i => i.url },
+            { key: "ext", label: "Type", cls: "col-type", sort: "ext",
+              cell: i => esc(i.ext.toUpperCase()) },
+            { key: "size", label: "Size", cls: "col-size num", sort: "size",
+              cell: i => this.formatSize(i.size) },
+            { key: "site", label: "Site", cls: "col-site", sort: "site",
+              cell: i => `<a class="doc-link" href="${esc(i.siteUrl)}">${esc(i.site)}</a>`, title: i => i.site },
+            { key: "library", label: "Library", cls: "col-library", sort: "library",
+              cell: i => esc(i.library), title: i => i.library },
+            { key: "modified", label: "Modified", cls: "col-date", sort: "modified",
+              cell: i => this.formatDate(i.modified) },
+            { key: "modifiedBy", label: "Modified By", cls: "col-user", sort: "modifiedBy",
+              cell: i => esc(i.modifiedBy), title: i => i.modifiedBy },
+            { key: "author", label: "Author", cls: "col-user", sort: "author",
+              cell: i => esc(i.author), title: i => i.author }
+        ];
+
+        this.isResizing = false;
+        this.widthsLocked = false;
+        this.iconCache = new Map();
+        this.pageIds = [];
+    }
+
+    visibleColumns() {
+        return this.COLUMNS.filter(c => !this.cfg.hidden.includes(c.key));
+    }
+
+    docHref(i) {
+        return OFFICE_EXT.has(i.ext)
+            ? `${i.siteUrl}/_layouts/15/WopiFrame.aspx?sourcedoc={${i.uniqueId}}&action=default`
+            : i.url;
+    }
+
+    /* Self-contained SVG file badge per extension - no CDN dependency, works on an isolated intranet. */
+    iconSvg(ext) {
+        if (this.iconCache.has(ext)) return this.iconCache.get(ext);
+        const color = TYPE_COLORS[ext] || "#767676";
+        const label = esc(ext.slice(0, 4).toUpperCase());
+        const svg = `<svg class="doc-icon" viewBox="0 0 16 16" role="img" aria-label="${label}">`
+            + `<path d="M2.5 0.5h6.2l4.8 4.8v10.2H2.5z" fill="${color}"/>`
+            + `<path d="M8.7 0.5l4.8 4.8H8.7z" fill="#fff" fill-opacity="0.45"/>`
+            + `<text x="8" y="12.6" textLength="9" lengthAdjust="spacingAndGlyphs" text-anchor="middle"`
+            + ` font-family="Segoe UI,Tahoma,sans-serif" font-size="5.5" font-weight="700" fill="#fff">${label}</text></svg>`;
+        this.iconCache.set(ext, svg);
+        return svg;
+    }
+
+    formatSize(bytes) {
+        if (!bytes) return "0 B";
+        const units = ["B","KB","MB","GB","TB"];
+        let i = 0, n = bytes;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return `${n.toFixed(i < 2 ? 0 : 1)} ${units[i]}`;
+    }
+
+    formatDate(d) {
+        if (!d) return "";
+        const pad = n => n.toString().padStart(2, "0");
+        if (this.cfg.relativeTime) {
+            const secs = Math.floor((Date.now() - d) / 1000);
+            if (secs < 60) return "Just now";
+            if (secs < 3600) { const m = Math.floor(secs / 60); return `${m} minute${m === 1 ? "" : "s"} ago`; }
+            if (d.toDateString() === new Date().toDateString()) return `Today ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            return `${d.getDate()} ${this.MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        }
+        return `${d.getDate()} ${this.MONTHS[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    /* Rebuilds thead from the visible column set - called on load and whenever columns are toggled. */
+    renderTableStructure(handlers) {
+        if (handlers) this.handlers = handlers;
+        this.widthsLocked = false;
+
+        const head = this.visibleColumns().map(c =>
+            `<th class="${c.cls}" data-key="${c.key}"${c.sort ? ` data-col="${c.sort}"` : ""}>`
+            + (c.head !== undefined ? c.head : `<span class="th-label">${c.label}</span><span class="sort-arrow"></span>`)
+            + `<div class="col-grip"></div></th>`).join("");
+
+        this.elements.tableWrapper.innerHTML = `
+            <table class="sp-table">
+                <thead><tr>${head}</tr></thead>
+                <tbody id="docTableBody"></tbody>
+            </table>`;
+
+        this.table = this.elements.tableWrapper.querySelector("table");
+        this.tbody = document.getElementById("docTableBody");
+
+        this.tbody.addEventListener("click", (e) => {
+            const row = e.target.closest("tr");
+            if (!row || e.target.closest("a")) return;
+            this.handlers.onRowClick(row.dataset.id, e.shiftKey, e.ctrlKey || e.metaKey);
+        });
+        this.table.querySelectorAll("th[data-col]").forEach(th => {
+            th.addEventListener("click", (e) => {
+                if (!this.isResizing && !e.target.classList.contains("col-grip")) this.handlers.onSort(th.dataset.col);
+            });
+        });
+        const master = document.getElementById("selectAllBox");
+        if (master) master.addEventListener("click", (e) => { e.stopPropagation(); this.handlers.onSelectAllPage(); });
+
+        this.restoreWidths();
+        this.attachResizers();
+    }
+
+    restoreWidths() {
+        let found = false;
+        this.table.querySelectorAll("th").forEach(th => {
+            const w = this.cfg.widths[th.dataset.key];
+            if (w) { th.style.width = w + "px"; found = true; }
+        });
+        if (found) this.lockWidths();
+    }
+
+    /* Converts the fluid 100% layout into fixed pixel widths once, so nothing reflows or jumps
+       when a resize starts. */
+    lockWidths() {
+        if (this.widthsLocked) return;
+        let total = 0;
+        this.table.querySelectorAll("th").forEach(th => {
+            const w = th.getBoundingClientRect().width;
+            th.style.width = w + "px";
+            total += w;
+        });
+        this.table.style.width = total + "px";
+        this.widthsLocked = true;
+    }
+
+    /* Pointer-captured column drag, coalesced to one width write per animation frame. */
+    attachResizers() {
+        this.table.querySelectorAll("th").forEach(th => {
+            const grip = th.querySelector(".col-grip");
+            grip.addEventListener("pointerdown", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.lockWidths();
+                this.isResizing = true;
+                grip.setPointerCapture(e.pointerId);
+                grip.classList.add("dragging");
+                document.body.classList.add("col-resizing");
+
+                const startX = e.clientX;
+                const startW = th.getBoundingClientRect().width;
+                const startTableW = this.table.getBoundingClientRect().width;
+                let lastX = startX, frame = 0;
+
+                const apply = () => {
+                    frame = 0;
+                    const w = Math.max(24, startW + lastX - startX);
+                    th.style.width = w + "px";
+                    this.table.style.width = (startTableW + w - startW) + "px";
+                };
+                const move = (ev) => { lastX = ev.clientX; if (!frame) frame = requestAnimationFrame(apply); };
+                const up = () => {
+                    if (frame) { cancelAnimationFrame(frame); apply(); }
+                    grip.removeEventListener("pointermove", move);
+                    grip.removeEventListener("pointerup", up);
+                    grip.removeEventListener("lostpointercapture", up);
+                    grip.classList.remove("dragging");
+                    document.body.classList.remove("col-resizing");
+                    this.saveWidths();
+                    setTimeout(() => { this.isResizing = false; }, 0);
+                };
+                grip.addEventListener("pointermove", move);
+                grip.addEventListener("pointerup", up);
+                grip.addEventListener("lostpointercapture", up);
+            });
+        });
+    }
+
+    saveWidths() {
+        this.table.querySelectorAll("th").forEach(th => {
+            this.cfg.widths[th.dataset.key] = Math.round(th.getBoundingClientRect().width);
+        });
+        this.persist();
+    }
+
+    setSortIndicator(col, dir) {
+        this.table.querySelectorAll("th[data-col]").forEach(th => {
+            th.querySelector(".sort-arrow").textContent = th.dataset.col === col ? (dir === "asc" ? "\u25B2" : "\u25BC") : "";
+        });
+    }
+
+    setCounters(count, filteredBytes, totalBytes, typeFilter) {
+        this.elements.counter.textContent = `Total Documents: ${count.toLocaleString()}`;
+        this.elements.sizeCounter.textContent = filteredBytes === totalBytes
+            ? `Total size: ${this.formatSize(totalBytes)}`
+            : `${typeFilter ? typeFilter.toUpperCase() : "Filtered"}: ${this.formatSize(filteredBytes)} of ${this.formatSize(totalBytes)}`;
+    }
+
+    renderRows(items, selected) {
+        const cols = this.visibleColumns();
+        this.pageIds = items.map(i => i.uniqueId);
+        this.tbody.innerHTML = items.map(i =>
+            `<tr data-id="${esc(i.uniqueId)}"${selected.has(i.uniqueId) ? ' class="is-selected"' : ""}>`
+            + cols.map(c => {
+                const t = c.title ? ` title="${esc(c.title(i))}"` : "";
+                return `<td class="${c.cls}"${t}>${c.cell(i)}</td>`;
+            }).join("") + "</tr>"
+        ).join("");
+        this.syncMasterCheckbox(selected);
+    }
+
+    syncMasterCheckbox(selected) {
+        const box = document.getElementById("selectAllBox");
+        if (!box) return;
+        const onPage = this.pageIds.filter(id => selected.has(id)).length;
+        box.classList.toggle("checked", onPage > 0 && onPage === this.pageIds.length);
+        box.classList.toggle("partial", onPage > 0 && onPage < this.pageIds.length);
+    }
+
+    setSelectionBar(count, bytes, filteredCount) {
+        const e = this.elements;
+        e.selectionBar.classList.toggle("on", count > 0);
+        e.selectionInfo.textContent = `${count} item${count === 1 ? "" : "s"} selected \u00B7 ${this.formatSize(bytes)}`;
+        const canSelectAll = filteredCount > count;
+        e.selectAllFiltered.textContent = canSelectAll ? `Select all ${filteredCount.toLocaleString()} matching` : "";
+        e.selectAllFiltered.style.display = canSelectAll ? "inline" : "none";
+    }
+
+    /* One dialog element serves confirmation, live progress and the result summary. */
+    showDialog({ title, message, lines, okLabel, onConfirm }) {
+        this.dlgConfirm = onConfirm;
+        document.getElementById("dlgTitle").textContent = title;
+        document.getElementById("dlgMsg").textContent = message;
+        document.getElementById("dlgList").innerHTML = (lines || []).join("");
+        const ok = document.getElementById("dlgOk");
+        ok.textContent = okLabel || "Delete";
+        ok.style.display = onConfirm ? "" : "none";
+        ok.disabled = false;
+        document.getElementById("dlgCancel").textContent = onConfirm ? "Cancel" : "Close";
+        document.getElementById("dlgOverlay").classList.add("on");
+    }
+
+    setDialogProgress(done, total) {
+        document.getElementById("dlgMsg").textContent = `Deleting ${done} of ${total}...`;
+        document.getElementById("dlgOk").disabled = true;
+        document.getElementById("dlgCancel").disabled = true;
+    }
+
+    closeDialog() {
+        document.getElementById("dlgOverlay").classList.remove("on");
+        document.getElementById("dlgCancel").disabled = false;
+        this.dlgConfirm = null;
+    }
+}
+
+class DocApp {
+    constructor() {
+        this.cfg = cfgStore.load();
+        this.service = new SPDataService();
+        this.ui = new UIManager(this.cfg, () => cfgStore.save(this.cfg));
+        this.state = {
+            allItems: [], filteredItems: [], selected: new Set(), lastClickedId: null, contentMatches: null,
+            currentPage: 1, pageSize: this.cfg.pageSize,
+            sortCol: this.cfg.sortCol, sortDir: this.cfg.sortDir, searchTerm: ""
+        };
+    }
+
+    async init() {
+        this.combos = {
+            type: new FilterCombo(document.getElementById("filterType"), "All Types", () => this.onFilterChange()),
+            author: new FilterCombo(document.getElementById("filterAuthor"), "All Authors", () => this.onFilterChange()),
+            editor: new FilterCombo(document.getElementById("filterEditor"), "All Modified By", () => this.onFilterChange())
+        };
+        this.ui.renderTableStructure({
+            onSort: (col) => this.handleSort(col),
+            onRowClick: (id, shift) => this.toggleSelection(id, shift),
+            onSelectAllPage: () => this.toggleSelectPage()
+        });
+        this.ui.setSortIndicator(this.state.sortCol, this.state.sortDir);
+        this.setupPagination();
+        this.setupSettings();
+        this.setupSelection();
+        this.setupContentSearch();
+        await this.loadData();
+    }
+
+    persist() { cfgStore.save(this.cfg); }
+
+    /* ---------- selection ---------- */
+
+    setupSelection() {
+        document.getElementById("btnClearSel").onclick = () => { this.state.selected.clear(); this.render(); };
+        document.getElementById("btnDelete").onclick = () => this.confirmDelete();
+        this.ui.elements.selectAllFiltered.onclick = () => {
+            this.state.filteredItems.forEach(i => this.state.selected.add(i.uniqueId));
+            this.render();
+        };
+
+        document.getElementById("dlgCancel").onclick = () => this.ui.closeDialog();
+        document.getElementById("dlgClose").onclick = () => this.ui.closeDialog();
+        document.getElementById("dlgOk").onclick = () => { if (this.ui.dlgConfirm) this.ui.dlgConfirm(); };
+        document.getElementById("dlgOverlay").addEventListener("click", (e) => {
+            if (e.target.id === "dlgOverlay" && !document.getElementById("dlgCancel").disabled) this.ui.closeDialog();
+        });
+    }
+
+    toggleSelection(id, shiftKey) {
+        const ids = this.ui.pageIds;
+        if (shiftKey && this.state.lastClickedId && ids.includes(this.state.lastClickedId)) {
+            const a = ids.indexOf(this.state.lastClickedId), b = ids.indexOf(id);
+            ids.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(x => this.state.selected.add(x));
+        } else {
+            if (this.state.selected.has(id)) this.state.selected.delete(id);
+            else this.state.selected.add(id);
+            this.state.lastClickedId = id;
+        }
+        this.render();
+    }
+
+    toggleSelectPage() {
+        const ids = this.ui.pageIds;
+        const allOn = ids.length > 0 && ids.every(id => this.state.selected.has(id));
+        ids.forEach(id => allOn ? this.state.selected.delete(id) : this.state.selected.add(id));
+        this.render();
+    }
+
+    selectedItems() {
+        return this.state.allItems.filter(i => this.state.selected.has(i.uniqueId));
+    }
+
+    /* ---------- delete ---------- */
+
+    confirmDelete() {
+        const items = this.selectedItems();
+        if (!items.length) return;
+
+        const shown = items.slice(0, 12).map(i => `<li>${esc(i.name)}</li>`);
+        if (items.length > shown.length) shown.push(`<li>and ${items.length - shown.length} more...</li>`);
+
+        this.ui.showDialog({
+            title: `Delete ${items.length} item${items.length === 1 ? "" : "s"}?`,
+            message: this.cfg.permanentDelete
+                ? `${this.ui.formatSize(items.reduce((s, i) => s + i.size, 0))} will be deleted permanently and cannot be restored.`
+                : `${this.ui.formatSize(items.reduce((s, i) => s + i.size, 0))} will be sent to the Recycle Bin of each site.`,
+            lines: shown,
+            onConfirm: () => this.runDelete(items)
+        });
+    }
+
+    /* Deletes four at a time, keeps per-item failures and drops only the files the server confirmed. */
+    async runDelete(items) {
+        const queue = items.slice();
+        const deleted = new Set();
+        const failures = [];
+        let done = 0;
+
+        this.ui.setDialogProgress(0, items.length);
+        const worker = async () => {
+            while (queue.length) {
+                const item = queue.shift();
+                const res = await this.service.deleteFile(item, this.cfg.permanentDelete);
+                if (res.ok) deleted.add(item.uniqueId);
+                else failures.push(`<li>${esc(item.name)} &mdash; <span class="why">${esc(res.reason)}</span></li>`);
+                this.ui.setDialogProgress(++done, items.length);
+            }
+        };
+        await Promise.all(Array.from({ length: 4 }, worker));
+
+        this.state.allItems = this.state.allItems.filter(i => !deleted.has(i.uniqueId));
+        deleted.forEach(id => this.state.selected.delete(id));
+        this.populateFilterOptions();
+        this.refresh();
+
+        this.ui.showDialog({
+            title: "Delete finished",
+            message: `${deleted.size} of ${items.length} deleted${failures.length ? `, ${failures.length} failed:` : "."}`,
+            lines: failures
+        });
+    }
+
+    /* ---------- data ---------- */
+
+    async reload() {
+        this.state.allItems = [];
+        this.state.selected.clear();
+        this.state.currentPage = 1;
+        this.ui.elements.progressFill.style.width = "0%";
+        this.ui.elements.liveCount.textContent = "0";
+        this.populateFilterOptions();
+        this.refresh();
+        await this.loadData();
+    }
+
+    /* Walks every discovered site, queues each non-empty library, then drains the queue
+       with 10 parallel workers following __next for libraries above the list view threshold. */
+    async loadData() {
+        this.ui.elements.progress.style.display = "block";
+        this.ui.elements.status.textContent = "Discovering sites...";
+
+        const sites = await this.service.discoverSites(this.cfg.includeSubsites);
+        const libQueue = [];
+
+        for (const site of sites) {
+            const libs = await this.service.getLists(site.url);
+            libs.forEach(l => {
+                if (l.ItemCount > 0) {
+                    const title = encodeURIComponent(l.Title.replace(/'/g, "''"));
+                    libQueue.push({
+                        url: `${site.url}/_api/web/lists/GetByTitle('${title}')/items?$select=File/Name,File/ServerRelativeUrl,File/Length,File/UniqueId,Modified,Editor/Title,Author/Title&$expand=File,Editor,Author&$top=500`,
+                        site: site.title,
+                        siteUrl: site.url,
+                        library: l.Title
+                    });
+                }
+            });
+        }
+
+        const total = libQueue.length;
+        let done = 0;
+        this.ui.elements.progressText.textContent = `Scanning ${total} libraries in ${sites.length} sites...`;
+
+        const worker = async () => {
+            while (libQueue.length > 0) {
+                const task = libQueue.shift();
+                let nextUrl = task.url;
+
+                while (nextUrl) {
+                    const data = await this.service.getRequest(nextUrl);
+                    const results = data?.d?.results || [];
+
+                    const items = results.reduce((acc, it) => {
+                        const name = it.File?.Name;
+                        if (!name || !name.includes(".") || name.toLowerCase().endsWith(".aspx")) return acc;
+                        acc.push({
+                            name,
+                            ext: name.split(".").pop().toLowerCase(),
+                            size: parseInt(it.File.Length, 10) || 0,
+                            url: it.File.ServerRelativeUrl,
+                            uniqueId: it.File.UniqueId,
+                            site: task.site,
+                            siteUrl: task.siteUrl,
+                            library: task.library,
+                            modified: new Date(it.Modified),
+                            modifiedBy: it.Editor?.Title || "System",
+                            author: it.Author?.Title || "System"
+                        });
+                        return acc;
+                    }, []);
+
+                    this.state.allItems.push(...items);
+                    this.ui.elements.liveCount.textContent = this.state.allItems.length;
+                    nextUrl = data?.d?.__next || null;
+                }
+                done++;
+                this.ui.elements.progressFill.style.width = (total ? done / total * 100 : 100) + "%";
+            }
+        };
+
+        await Promise.all(Array.from({ length: 10 }, worker));
+        this.ui.elements.progress.style.display = "none";
+        this.populateFilterOptions();
+        this.refresh();
+    }
+
+    /* Rebuilds the filter lists from the current item set; each combo drops its own value
+       only when that option no longer exists. */
+    populateFilterOptions() {
+        const entries = (key, byCount, label) => {
+            const counts = new Map();
+            this.state.allItems.forEach(i => counts.set(i[key], (counts.get(i[key]) || 0) + 1));
+            return [...counts.entries()]
+                .sort(byCount ? (a, b) => b[1] - a[1] : (a, b) => a[0].localeCompare(b[0], "et"))
+                .map(([v, count]) => ({ value: v, label: label ? label(v) : v, count }));
+        };
+        this.combos.type.setEntries(entries("ext", true, v => v.toUpperCase()));
+        this.combos.author.setEntries(entries("author"));
+        this.combos.editor.setEntries(entries("modifiedBy"));
+    }
+
+    /* ---------- settings ---------- */
+
+    setupSettings() {
+        const panel = document.getElementById("settingsPanel");
+        const btn = document.getElementById("btnSettings");
+
+        document.getElementById("colToggles").innerHTML = this.ui.COLUMNS.map(c =>
+            `<label><input type="checkbox" data-key="${c.key}"${this.cfg.hidden.includes(c.key) ? "" : " checked"}> ${c.label}</label>`).join("");
+
+        document.querySelectorAll("#colToggles input").forEach(cb => {
+            cb.onchange = () => {
+                const key = cb.dataset.key;
+                this.cfg.hidden = cb.checked ? this.cfg.hidden.filter(k => k !== key) : this.cfg.hidden.concat(key);
+                if (this.cfg.hidden.length === this.ui.COLUMNS.length) {
+                    this.cfg.hidden = this.cfg.hidden.filter(k => k !== key);
+                    cb.checked = true;
+                    return;
+                }
+                this.persist();
+                this.ui.renderTableStructure();
+                this.ui.setSortIndicator(this.state.sortCol, this.state.sortDir);
+                this.render();
+            };
+        });
+
+        const pageSize = document.getElementById("setPageSize");
+        pageSize.value = this.cfg.pageSize;
+        pageSize.onchange = () => {
+            this.cfg.pageSize = this.state.pageSize = parseInt(pageSize.value, 10);
+            this.state.currentPage = 1;
+            this.persist();
+            this.render();
+        };
+
+        const relative = document.getElementById("setRelative");
+        relative.checked = this.cfg.relativeTime;
+        relative.onchange = () => { this.cfg.relativeTime = relative.checked; this.persist(); this.render(); };
+
+        const permanent = document.getElementById("setPermanent");
+        permanent.checked = this.cfg.permanentDelete;
+        permanent.onchange = () => { this.cfg.permanentDelete = permanent.checked; this.persist(); };
+
+        const subsites = document.getElementById("setSubsites");
+        subsites.checked = this.cfg.includeSubsites;
+        subsites.onchange = () => { this.cfg.includeSubsites = subsites.checked; this.persist(); this.reload(); };
+
+        document.getElementById("btnRescan").onclick = () => this.reload();
+        document.getElementById("btnResetCfg").onclick = () => this.resetSettings();
+
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const r = btn.getBoundingClientRect();
+            panel.style.top = (r.bottom + 4) + "px";
+            panel.style.left = Math.max(8, Math.min(r.right - 240, window.innerWidth - 248)) + "px";
+            panel.classList.toggle("on");
+        };
+        document.addEventListener("click", (e) => {
+            if (!panel.contains(e.target) && e.target !== btn) panel.classList.remove("on");
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape") return;
+            panel.classList.remove("on");
+            if (!document.getElementById("dlgCancel").disabled) this.ui.closeDialog();
+        });
+    }
+
+    resetSettings() {
+        cfgStore.clear();
+        Object.assign(this.cfg, DEFAULT_CFG, { widths: {}, hidden: DEFAULT_CFG.hidden.slice() });
+        this.state.pageSize = this.cfg.pageSize;
+        this.state.sortCol = this.cfg.sortCol;
+        this.state.sortDir = this.cfg.sortDir;
+        this.state.currentPage = 1;
+        document.getElementById("setPageSize").value = this.cfg.pageSize;
+        document.getElementById("setRelative").checked = this.cfg.relativeTime;
+        document.getElementById("setSubsites").checked = this.cfg.includeSubsites;
+        document.getElementById("setPermanent").checked = this.cfg.permanentDelete;
+        document.querySelectorAll("#colToggles input").forEach(cb => { cb.checked = !this.cfg.hidden.includes(cb.dataset.key); });
+        this.ui.renderTableStructure();
+        this.ui.setSortIndicator(this.state.sortCol, this.state.sortDir);
+        this.refresh();
+    }
+
+    /* ---------- filtering, sorting, paging ---------- */
+
+    onDateModeChange() {
+        document.getElementById("customRange").classList.toggle("on", document.getElementById("filterDate").value === "custom");
+        this.onFilterChange();
+    }
+
+    onFilterChange() {
+        this.state.currentPage = 1;
+        this.refresh();
+    }
+
+    handleSearch() {
+        this.state.searchTerm = document.getElementById("fileSearch").value.toLowerCase();
+        this.state.currentPage = 1;
+        this.refresh();
+    }
+
+    /* Secondary search: SharePoint Search supplies the paths of full-text hits, which are applied
+       as one more filter over the loaded rows so every column and the delete flow keep working. */
+    setupContentSearch() {
+        const input = document.getElementById("contentSearch");
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") this.runContentSearch(); });
+        input.addEventListener("search", () => { if (!input.value) this.clearContentSearch(); });
+        document.getElementById("btnContentSearch").onclick = () => this.runContentSearch();
+        document.getElementById("contentStatus").onclick = (e) => {
+            if (e.target.dataset.act === "clear") this.clearContentSearch();
+        };
+    }
+
+    async runContentSearch() {
+        const input = document.getElementById("contentSearch");
+        const status = document.getElementById("contentStatus");
+        const btn = document.getElementById("btnContentSearch");
+        const terms = input.value.trim();
+        if (!terms) return this.clearContentSearch();
+
+        input.disabled = btn.disabled = true;
+        status.textContent = "Searching file contents...";
+        const res = await this.service.searchContent(terms);
+        input.disabled = btn.disabled = false;
+
+        if (!res) { status.textContent = "Search service returned nothing - is it running and crawling?"; return; }
+
+        this.state.contentMatches = res.paths;
+        this.state.currentPage = 1;
+        const inList = this.state.allItems.filter(i => res.paths.has(i.url.toLowerCase())).length;
+        status.innerHTML = `${inList} of ${res.total.toLocaleString()} hit${res.total === 1 ? "" : "s"} in this list `
+            + `<a class="link-btn" data-act="clear">clear</a>`;
+        this.refresh();
+    }
+
+    clearContentSearch() {
+        document.getElementById("contentSearch").value = "";
+        document.getElementById("contentStatus").textContent = "";
+        this.state.contentMatches = null;
+        this.state.currentPage = 1;
+        this.refresh();
+    }
+
+    handleSort(col) {
+        if (this.state.sortCol === col) this.state.sortDir = this.state.sortDir === "asc" ? "desc" : "asc";
+        else { this.state.sortCol = col; this.state.sortDir = col === "name" || col === "ext" ? "asc" : "desc"; }
+        this.cfg.sortCol = this.state.sortCol;
+        this.cfg.sortDir = this.state.sortDir;
+        this.persist();
+        this.ui.setSortIndicator(this.state.sortCol, this.state.sortDir);
+        this.refresh();
+    }
+
+    /* Returns a [from, to] pair for the active time filter, or null for "Any Time". */
+    dateBounds() {
+        const mode = document.getElementById("filterDate").value;
+        if (!mode) return null;
+        if (mode === "custom") {
+            const f = document.getElementById("dateFrom").value, t = document.getElementById("dateTo").value;
+            if (!f && !t) return null;
+            return [f ? new Date(f + "T00:00:00") : null, t ? new Date(t + "T23:59:59.999") : null];
+        }
+        return [new Date(Date.now() - parseInt(mode, 10) * 86400000), null];
+    }
+
+    refresh() {
+        const fType = this.combos.type.value;
+        const fAuth = this.combos.author.value;
+        const fEdit = this.combos.editor.value;
+        const range = this.dateBounds();
+
+        this.state.filteredItems = this.state.allItems.filter(i =>
+            i.name.toLowerCase().includes(this.state.searchTerm) &&
+            (!this.state.contentMatches || this.state.contentMatches.has(i.url.toLowerCase())) &&
+            (!fType || i.ext === fType) &&
+            (!fAuth || i.author === fAuth) &&
+            (!fEdit || i.modifiedBy === fEdit) &&
+            (!range || ((!range[0] || i.modified >= range[0]) && (!range[1] || i.modified <= range[1])))
+        );
+
+        const col = this.state.sortCol, dir = this.state.sortDir === "asc" ? 1 : -1;
+        this.state.filteredItems.sort((a, b) => {
+            const vA = a[col], vB = b[col];
+            if (typeof vA === "string") return dir * vA.localeCompare(vB, "et", { sensitivity: "base" });
+            return dir * ((vA > vB) - (vA < vB));
+        });
+
+        const bytes = arr => arr.reduce((s, i) => s + i.size, 0);
+        this.ui.setCounters(this.state.filteredItems.length, bytes(this.state.filteredItems), bytes(this.state.allItems), fType);
+        this.render();
+    }
+
+    totalPages() {
+        return Math.ceil(this.state.filteredItems.length / this.state.pageSize) || 1;
+    }
+
+    setupPagination() {
+        document.getElementById("pPrev").onclick = () => { if (this.state.currentPage > 1) { this.state.currentPage--; this.render(); } };
+        document.getElementById("pNext").onclick = () => { if (this.state.currentPage < this.totalPages()) { this.state.currentPage++; this.render(); } };
+        document.getElementById("pageJump").onchange = (e) => {
+            this.state.currentPage = Math.min(Math.max(1, parseInt(e.target.value, 10) || 1), this.totalPages());
+            this.render();
+        };
+    }
+
+    render() {
+        const start = (this.state.currentPage - 1) * this.state.pageSize;
+        const page = this.state.filteredItems.slice(start, start + this.state.pageSize);
+        this.ui.renderRows(page, this.state.selected);
+
+        const sel = this.selectedItems();
+        this.ui.setSelectionBar(sel.length, sel.reduce((s, i) => s + i.size, 0), this.state.filteredItems.length);
+
+        document.getElementById("pageJump").value = this.state.currentPage;
+        document.getElementById("pageTotalLabel").textContent = `of ${this.totalPages()}`;
+        this.ui.elements.status.textContent = page.length
+            ? `Showing ${start + 1}-${start + page.length} of ${this.state.filteredItems.length}`
+            : "No documents match the current filters";
+    }
+}
+
+const app = new DocApp();
+document.addEventListener("DOMContentLoaded", () => app.init());
+</script>
+</body>
+</html>
