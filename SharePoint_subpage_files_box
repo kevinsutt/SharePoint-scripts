@@ -1,0 +1,674 @@
+<div id="latestTemplates">
+    <h2>Viimati muudetud dokumendid</h2>
+    <div class="toolbar" id="docToolbar">Loading filters...</div>
+    <div id="docTableWrapper">Loading table...</div>
+    <div class="pagination" id="docPagination"></div>
+</div>
+
+<script type="text/javascript">
+(async function() {
+    const container = document.getElementById("latestTemplates");
+    const toolbar = document.getElementById("docToolbar");
+    const tableWrapper = document.getElementById("docTableWrapper");
+    const paginationDiv = document.getElementById("docPagination");
+    
+    const siteUrl = _spPageContextInfo.webAbsoluteUrl;
+    const relevantFileExtensions = ["docx", "pptx", "xlsx", "pdf", "jpg", "png", "txt", "rtf"];
+    const batchSize = 5000; 
+
+    let itemsAll = [];
+    let filteredItems = [];
+    let currentPage = 1;
+    const pageSize = 10;
+    
+    const filters = { 
+        name: '',
+        modifiedBy: ''
+    }; 
+    
+    let sortColumn = 'modified';
+    let sortDirection = 'desc';
+    let isFetching = false; 
+
+    const ESTONIAN_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    const executeSPRequest = (url) => {
+        return new Promise((resolve, reject) => {
+            const headers = { "Accept": "application/json;odata=verbose" };
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            for (const key in headers) { xhr.setRequestHeader(key, headers[key]); }
+            
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        reject(new Error("Error parsing data (JSON parse error)."));
+                    }
+                } else if (xhr.status === 403) {
+                    console.warn(`Skipped forbidden document: 403 Forbidden URL: ${url}`);
+                    resolve({ d: { results: [] } }); 
+                } else {
+                    reject(new Error(`API Error: ${xhr.status} ${xhr.statusText} URL: ${url}`));
+                }
+            };
+            xhr.onerror = function () { reject(new Error("Network Error")); };
+            xhr.send();
+        });
+    };
+
+    const mapItem = (it, libTitle) => ({
+        id: it.ID,
+        name: it.File?.Name || it.Title || `ID ${it.ID}`,
+        url: it.File?.ServerRelativeUrl,
+        modified: new Date(it.Modified),
+        modifiedBy: it.Editor?.Title || "",
+        library: libTitle,
+        iconUrl: null
+    });
+
+    const formatAbsoluteDate = date => {
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${pad(date.getDate())}. ${ESTONIAN_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+    };
+
+    const formatRelativeTime = (date) => {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const pad = (n) => n.toString().padStart(2, '0');
+        const timeString = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+        if (diffMinutes < 60) {
+            if (diffMinutes < 1) return "just now";
+            return `${diffMinutes} min ago`;
+        }
+
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (date.getTime() >= startOfToday.getTime()) {
+            return `today at ${timeString}`;
+        }
+
+        const startOfYesterday = new Date(startOfToday.getTime() - (24 * 60 * 60 * 1000));
+        if (date.getTime() >= startOfYesterday.getTime()) {
+            return `yesterday at ${timeString}`;
+        }
+
+        return formatAbsoluteDate(date);
+    };
+    
+    const fetchAllApi = async (url, libTitle, results = []) => {
+        const data = await executeSPRequest(url);
+        const newItems = (data.d.results || []).map(it => mapItem(it, libTitle)).filter(i => i.url);
+        results = results.concat(newItems);
+
+        if (data.d.__next) {
+            return fetchAllApi(data.d.__next, libTitle, results);
+        }
+        return results;
+    };
+
+    const fetchIcon = async (entry) => {
+        if (entry.iconUrl !== null) return;
+        try {
+            const iconUrl = `${siteUrl}/_api/web/maptoicon(filename='${encodeURIComponent(entry.name)}',progid='',size=0)`;
+            const data = await executeSPRequest(iconUrl);
+            entry.iconUrl = `${siteUrl}/_layouts/15/images/${data.d.MapToIcon}`;
+        } catch {
+            entry.iconUrl = "";
+        }
+    };
+
+    const sortItems = () => {
+        filteredItems.sort((a, b) => {
+            let comparison = 0;
+            if (sortColumn === 'name' || sortColumn === 'modifiedBy') {
+                comparison = a[sortColumn].localeCompare(b[sortColumn]);
+            } else if (sortColumn === 'modified') {
+                comparison = a.modified - b.modified;
+            }
+            return sortDirection === 'asc' ? comparison : comparison * -1;
+        });
+    };
+
+    const applyFilters = () => {
+        const nameFilter = filters.name.toLowerCase();
+        const modifiedByFilter = filters.modifiedBy.toLowerCase();
+
+        filteredItems = itemsAll.filter(i => {
+            const nameMatch = !nameFilter || i.name.toLowerCase().includes(nameFilter);
+            const modifiedByMatch = !modifiedByFilter || i.modifiedBy.toLowerCase() === modifiedByFilter;
+            return nameMatch && modifiedByMatch;
+        });
+    };
+
+    const getSortIndicator = (col) => {
+        if (sortColumn === col) {
+            return sortDirection === 'asc' ? ' ▲' : ' ▼';
+        }
+        return '';
+    };
+    
+    const attachResizeHandles = () => {
+        const table = tableWrapper.querySelector('table');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('th.resizable-th');
+        let currentTh = null;
+        let startX = 0;
+        let startWidth = 0;
+        let columnIndex = -1;
+
+        const getThWidth = (th) => {
+            return parseFloat(getComputedStyle(th, null).width.replace("px", ""));
+        };
+
+        const doDrag = (e) => {
+            if (currentTh) {
+                const diffX = e.clientX - startX;
+                const newWidth = startWidth + diffX;
+
+                if (newWidth > 50) { 
+                    currentTh.style.width = newWidth + 'px';
+                    
+                    const rows = table.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        if (row.cells.length > columnIndex) {
+                            row.cells[columnIndex].style.width = newWidth + 'px';
+                        }
+                    });
+                }
+            }
+        };
+
+        const stopDrag = () => {
+            if (currentTh) {
+                document.removeEventListener('mousemove', doDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                tableWrapper.style.cursor = 'default';
+                currentTh = null;
+            }
+        };
+
+        headers.forEach((th) => {
+            th.addEventListener('mousedown', (e) => {
+                const rect = th.getBoundingClientRect();
+                const isNearEdge = rect.right - e.clientX <= 15; 
+                
+                if (isNearEdge && !th.classList.contains('iconCol')) {
+                    e.preventDefault();
+                    
+                    currentTh = th;
+                    startX = e.clientX;
+                    startWidth = getThWidth(th);
+                    columnIndex = Array.from(th.parentNode.children).indexOf(th);
+
+                    tableWrapper.style.cursor = 'col-resize';
+                    
+                    document.addEventListener('mousemove', doDrag);
+                    document.addEventListener('mouseup', stopDrag);
+                }
+            });
+            
+            th.addEventListener('mousemove', (e) => {
+               const rect = th.getBoundingClientRect();
+               const isNearEdge = rect.right - e.clientX <= 15;
+               if (isNearEdge && !th.classList.contains('iconCol')) {
+                  th.style.cursor = 'col-resize';
+               } else if (!currentTh) {
+                  th.style.cursor = 'pointer';
+               }
+            });
+            th.addEventListener('mouseleave', () => {
+               if (!currentTh) th.style.cursor = 'pointer'; 
+            });
+        });
+    };
+
+    const renderTableBody = async () => {
+        const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const items = filteredItems.slice(start, end);
+
+        await Promise.all(items.map(fetchIcon));
+
+        let bodyHtml = '';
+
+        if (items.length === 0) {
+            bodyHtml = `<tr><td colspan="4" class="empty-state">No documents found with filters.</td></tr>`;
+        } else {
+            items.forEach(entry => {
+                const wopiUrl = `${siteUrl}/_layouts/15/WopiFrame.aspx?sourcedoc=${encodeURIComponent(entry.url)}&file=${encodeURIComponent(entry.name)}&action=default`;
+                bodyHtml += `<tr>
+                    <td class="iconCol">${entry.iconUrl ? `<img class="icon" src="${entry.iconUrl}">` : ''}</td>
+                    <td title="${entry.name}" style="width: auto;">
+                        <a href="${wopiUrl}" target="_blank">${entry.name}</a>
+                    </td>
+                    <td>${formatRelativeTime(entry.modified)}</td> <td>${entry.modifiedBy}</td>
+                </tr>`;
+            });
+        }
+        
+        const tbody = document.getElementById('docTableBody');
+        if (tbody) tbody.innerHTML = bodyHtml;
+        
+        renderPagination();
+        renderToolbar(); 
+    };
+    
+    const renderToolbar = () => {
+        if (!document.getElementById('filterName')) {
+            const html = `
+                <div class="toolbar-left">
+                    <div class="search-container">
+                        <input type="text" id="filterName" placeholder="Find by document title..." value="${filters.name}">
+                    </div>
+                    <div class="filter-container-toolbar" id="filterContainerBy" style="position:relative;">
+                        <button id="modifiedByButton" class="filter-button" type="button">
+                            Modified By: ${filters.modifiedBy || 'All'}
+                        </button>
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <span id="itemCounter" style="font-size: 0.9em; color: #666;">Total: ${filteredItems.length}</span>
+                </div>`;
+                
+            toolbar.innerHTML = html;
+            attachToolbarEvents();
+        } else {
+            const counter = document.getElementById('itemCounter');
+            if(counter) counter.textContent = `Total: ${filteredItems.length}`;
+        }
+    };
+    
+    const renderTableStructure = () => {
+        tableWrapper.innerHTML = `
+        <table>
+            <thead>
+            <tr>
+                <th class="iconCol"></th>
+                <th data-column="name" class="sortable resizable-th" style="width: auto;">Title${getSortIndicator('name')}</th>
+                <th data-column="modified" class="sortable resizable-th" style="width: 130px;">Modified${getSortIndicator('modified')}</th>
+                <th data-column="modifiedBy" class="sortable resizable-th" style="width: 160px;">Modified By${getSortIndicator('modifiedBy')}</th>
+            </tr>
+            </thead>
+            <tbody id="docTableBody"></tbody>
+        </table>`;
+        
+        tableWrapper.querySelectorAll('th.sortable').forEach(th => {
+            th.onclick = (e) => {
+                if (e.target.closest('.resizable-th') && (e.offsetX > (th.offsetWidth - 15))) return; 
+
+                const column = th.getAttribute('data-column');
+                if (sortColumn === column) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = column;
+                    sortDirection = 'desc'; 
+                }
+                currentPage = 1; 
+                applyFilters(); 
+                sortItems();
+                renderTableBody(); 
+            };
+        });
+        
+        attachResizeHandles();
+    };
+
+    const renderPagination = () => {
+        const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+
+        paginationDiv.innerHTML = `
+            <div class="pagination-controls">
+                <button type="button" id="prevPageBtn" ${currentPage === 1 ? 'disabled' : ''}>← Previous</button>
+                <span class="page-info">
+                    Page <input type="number" id="pageNumberInput" min="1" max="${totalPages}" value="${currentPage}"> / ${totalPages}
+                </span>
+                <button type="button" id="nextPageBtn" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>
+            </div>
+        `;
+        
+        document.getElementById("prevPageBtn").onclick = () => { currentPage--; renderTableBody(); };
+        document.getElementById("nextPageBtn").onclick = () => { currentPage++; renderTableBody(); };
+
+        const pageInput = document.getElementById("pageNumberInput");
+        if(pageInput) {
+            pageInput.onchange = pageInput.onkeypress = (e) => {
+                if (e.type === 'keypress' && e.key !== 'Enter') return;
+                let newPage = parseInt(pageInput.value, 10);
+                if (isNaN(newPage) || newPage < 1) newPage = 1;
+                else if (newPage > totalPages) newPage = totalPages;
+                
+                if (newPage !== currentPage) {
+                    currentPage = newPage;
+                    pageInput.value = currentPage; 
+                    renderTableBody();
+                }
+            };
+        }
+    };
+
+    const attachToolbarEvents = () => {
+        const filterNameInput = document.getElementById("filterName");
+        if(filterNameInput) {
+            filterNameInput.value = filters.name; 
+            filterNameInput.oninput = (e) => {
+                filters.name = e.target.value;
+                currentPage = 1;
+                applyFilters();
+                sortItems();
+                renderTableBody();
+            };
+        }
+
+        const uniqueModifiers = Array.from(new Set(itemsAll.map(i => i.modifiedBy))).filter(n => n).sort();
+        const parentContainer = document.getElementById('filterContainerBy');
+        const button = document.getElementById('modifiedByButton');
+        
+        if (!document.getElementById('dropdown-modifiedBy')) {
+            let dropdownHtml = `<div class="filter-dropdown" id="dropdown-modifiedBy">
+                <div class="dropdown-search">
+                    <input type="text" id="modifiedBySearch" placeholder="Search by name..." />
+                </div>
+                <div class="dropdown-options-list" id="modifiedByOptions">
+                    </div>
+            </div>`;
+            parentContainer.insertAdjacentHTML('beforeend', dropdownHtml);
+        }
+        
+        const dropdownElement = document.getElementById(`dropdown-modifiedBy`);
+        const optionsList = document.getElementById('modifiedByOptions');
+        const searchInput = document.getElementById('modifiedBySearch');
+
+        const populateOptions = (searchQuery = '') => {
+            const normalizedQuery = searchQuery.toLowerCase().trim();
+            let optionsHtml = '';
+            const allChecked = filters.modifiedBy === '';
+            
+            if ('kõik'.includes(normalizedQuery) || normalizedQuery === '') {
+                optionsHtml += `<label data-name="Kõik"><input type="radio" name="filter-modifiedBy" value="" ${allChecked ? 'checked' : ''}> **All**</label><hr style="margin: 3px 0; border-color: #eee;">`;
+            }
+
+            uniqueModifiers.forEach(val => {
+                const normalizedVal = val.toLowerCase();
+                if (normalizedVal.includes(normalizedQuery)) {
+                    optionsHtml += `<label data-name="${val}"><input type="radio" name="filter-modifiedBy" value="${val}" ${filters.modifiedBy === val ? 'checked' : ''}> ${val}</label>`;
+                }
+            });
+            optionsList.innerHTML = optionsHtml;
+            
+            optionsList.querySelectorAll(`input[name="filter-modifiedBy"]`).forEach(radio => {
+                radio.onchange = (e) => {
+                    filters.modifiedBy = e.target.value;
+                    currentPage = 1;
+                    button.textContent = `Modified By: ${filters.modifiedBy || 'All'}`; 
+                    dropdownElement.classList.remove('active');
+                    applyFilters();
+                    sortItems();
+                    renderTableBody();
+                };
+            });
+        };
+        
+        populateOptions();
+
+        searchInput.oninput = () => {
+            populateOptions(searchInput.value);
+        };
+        
+        button.onclick = (e) => {
+            button.textContent = `Modified By: ${filters.modifiedBy || 'All'}`;
+            document.querySelectorAll('.filter-dropdown.active').forEach(d => {
+                if (d.id !== dropdownElement.id) d.classList.remove('active');
+            });
+            dropdownElement.classList.toggle('active');
+            
+            if (dropdownElement.classList.contains('active')) {
+                searchInput.value = '';
+                populateOptions();
+                searchInput.focus();
+            }
+            e.stopPropagation(); 
+        };
+
+        document.onclick = (e) => {
+            if (!e.target.closest('.filter-container-toolbar') && !e.target.closest('.filter-dropdown')) {
+                document.querySelectorAll('.filter-dropdown.active').forEach(d => d.classList.remove('active'));
+            }
+        };
+    };
+
+    const initialFetch = async () => {
+        if (isFetching) return;
+        isFetching = true;
+        
+        toolbar.innerHTML = `<span style="color:#0078d4;">Loading document templates...</span>`;
+        tableWrapper.innerHTML = `<div style="text-align: center; padding: 20px; color: #666;">Loading list structure...</div>`;
+        paginationDiv.innerHTML = '';
+
+        const libUrl = `${siteUrl}/_api/web/lists?$filter=Hidden eq false&$select=Title&$orderby=Title`;
+        let libs;
+        try {
+            const data = await executeSPRequest(libUrl);
+            libs = data.d.results || [];
+        } catch (e) {
+            toolbar.innerHTML = `<span style="color:red;">Error loading document templates: ${e.message}</span>`;
+            isFetching = false;
+            return;
+        }
+
+        toolbar.innerHTML = `<span style="color:#0078d4;">Loading recent documents ${libs.length} from template...</span>`;
+        
+        const fetchPromises = libs.map(lib => {
+            const safeTitle = lib.Title.replace(/'/g, "''");
+            const extensionFilter = relevantFileExtensions.map(ext => `substringof('${ext}', FileLeafRef)`).join(' or ');
+            const itemUrl = 
+                `${siteUrl}/_api/web/lists/GetByTitle('${safeTitle}')/items?` +
+                `$select=ID,Title,Modified,Editor/Title,File/ServerRelativeUrl,File/Name,FileLeafRef&$expand=Editor,File&` +
+                `$filter=FSObjType eq 0 and (${extensionFilter})` +
+                `&$top=${batchSize}&$orderby=Modified desc`; 
+            
+            return fetchAllApi(itemUrl, lib.Title);
+        });
+
+        const results = await Promise.allSettled(fetchPromises);
+        
+        itemsAll = results
+            .filter(result => result.status === 'fulfilled' && Array.isArray(result.value))
+            .flatMap(result => result.value);
+
+        isFetching = false;
+        
+        applyFilters(); 
+        sortItems();
+        renderTableStructure(); 
+        renderToolbar();        
+        renderTableBody();      
+    };
+
+    const initialStyle = `
+    <style>
+        #latestTemplates { 
+            font-family: 'Segoe UI', 'Segoe', Tahoma, Helvetica, Arial, sans-serif; 
+            max-width: 100%; margin: 15px 0; 
+            background-color: #fff; color: #333; 
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #latestTemplates h2 { 
+            font-size: 1.4em; 
+            margin: 0; padding: 15px 20px;
+            color: #262626; 
+            border-bottom: 1px solid #eaeaea; 
+            background: #fafafa;
+            border-radius: 4px 4px 0 0;
+            font-weight: 600;
+        }
+        
+        /* Toolbar */
+        .toolbar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 12px 20px; background: #fff; 
+            border-bottom: 1px solid #eaeaea; 
+            z-index: 10; 
+        }
+        .toolbar-left, .toolbar-right { display: flex; align-items: center; }
+        
+        .search-container input { 
+            padding: 8px 12px; border: 1px solid #ccc; border-radius: 2px; width: 220px; 
+            margin-right: 20px; font-size: 13px;
+            transition: border-color 0.2s;
+        }
+        .search-container input:focus { border-color: #0078d4; outline: none; }
+
+        .filter-button { 
+            padding: 7px 12px; background: #fff; border: 1px solid #ccc; border-radius: 2px; 
+            cursor: pointer; font-weight: 500; min-width: 130px; text-align: left; position: relative;
+            color: #333; font-size: 13px;
+        }
+        .filter-button:hover { background: #f4f4f4; border-color: #999; }
+        
+        .filter-container-toolbar { position: relative; } 
+
+        /* Table */
+        #latestTemplates table { width:100%; border-collapse:collapse; table-layout:fixed; }
+        #latestTemplates thead th { 
+            padding: 12px 10px; 
+            border-bottom: 2px solid #0078d4; 
+            background: #fff; 
+            font-weight: 600; 
+            color: #333; 
+            text-align: left; 
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #latestTemplates thead th:hover { background-color: #f8f8f8; color: #000; }
+        
+        /* Resizing cursor and VISIBLE LINE for THs */
+        th.resizable-th { position: relative; padding-right: 15px !important; }
+        th.resizable-th:not(.iconCol)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 5px;
+            border-right: 1px solid #ccc;
+            cursor: col-resize;
+            z-index: 10;
+            opacity: 0.5;
+            transition: border-color 0.1s, opacity 0.1s;
+        }
+        th.resizable-th:not(.iconCol):hover::after {
+            border-right: 1px solid #0078d4; 
+            opacity: 1;
+        }
+        #docTableWrapper td { width: inherit; } 
+
+        
+        #latestTemplates td { 
+            padding: 10px; 
+            border-bottom: 1px solid #eaeaea; 
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+            color: #444; font-size: 13px;
+        }
+        #latestTemplates tbody tr:nth-child(even) { background: #fafafa; }
+        #latestTemplates tbody tr:hover { background: #f0f8ff; color: #000; }
+        
+        td.empty-state { text-align: center; padding: 40px; font-style: italic; color: #777; font-size: 14px; }
+        
+        th.iconCol, td.iconCol { width: 36px; text-align: center; padding: 5px; }
+        
+        #latestTemplates img.icon { width: 16px; height: 16px; vertical-align: middle; }
+        #latestTemplates a { color: #0078d4; text-decoration: none; font-weight: 500; }
+        #latestTemplates a:hover { text-decoration: underline; color: #004578; }
+
+        /* Dropdown Styles */
+        .filter-dropdown { 
+            position: absolute; 
+            top: 100%; left: 0; 
+            z-index: 2000; 
+            background: white; 
+            border: 1px solid #ccc; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+            width: 260px; 
+            max-height: 350px; /* Increased height to accommodate search */
+            overflow: hidden; /* Hide scrollbars unless needed */
+            display: none; 
+            margin-top: 4px;
+            border-radius: 2px;
+        }
+        .filter-dropdown.active { display: block; }
+        
+        /* Dropdown Search Box */
+        .dropdown-search {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .dropdown-search input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            box-sizing: border-box;
+            font-size: 13px;
+        }
+        
+        /* Options List Container (Scrollable) */
+        .dropdown-options-list {
+            max-height: 290px; /* Max height before scrolling starts */
+            overflow-y: auto;
+            padding: 5px 0;
+        }
+        
+        .filter-dropdown label { 
+            display: flex; align-items: center; padding: 8px 12px; cursor: pointer; font-size: 13px; color: #333;
+        }
+        .filter-dropdown label:hover { background: #f3f3f3; }
+        .filter-dropdown input[type="radio"] { margin-right: 10px; }
+        .filter-dropdown hr { border: 0; border-top: 1px solid #eee; margin: 4px 0; }
+
+        /* Pagination */
+        .pagination { 
+            display: flex; justify-content: center; align-items: center; 
+            padding: 15px; background: #fff; 
+            border-top: 1px solid #eaeaea; 
+            border-radius: 0 0 4px 4px; 
+        }
+        .pagination button { 
+            padding: 6px 14px; margin: 0 5px; 
+            border: 1px solid #d1d1d1; background: #fff; color: #333; 
+            cursor: pointer; border-radius: 2px; font-size: 13px;
+            transition: background 0.2s;
+        }
+        .pagination button:hover:not(:disabled) { background: #f4f4f4; border-color: #999; }
+        .pagination button:disabled { background: #f9f9f9; border-color: #eee; color: #bbb; cursor: default; }
+        
+        .page-info { margin: 0 15px; font-size: 13px; color: #555; }
+        .page-info input { 
+            width: 40px; text-align: center; padding: 4px; 
+            border: 1px solid #ccc; border-radius: 2px; margin: 0 5px; 
+            font-size: 13px;
+        }
+    </style>
+    `;
+    container.insertAdjacentHTML('beforebegin', initialStyle);
+
+    try {
+        await initialFetch();
+    } catch(err){
+        container.innerHTML = `<h2 style="color:red;">Critical Error</h2><p>${err.message}</p>`;
+        console.error("SharePoint Script Error:", err);
+    }
+})();
+</script>
