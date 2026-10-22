@@ -1,0 +1,130 @@
+<style>
+    :root {
+        --textNormal: white;
+        --textDropdown: black;
+        --buttonNormal: #339900;
+        --buttonHover: #339900;
+        --dropdownNormal: #FFFCFC;
+        --dropdownHover: #f1f1f1;
+        --gradientNormal: radial-gradient(var(--buttonHover) 50%, var(--buttonNormal) 80%);
+    }
+    a.customButton {
+        color: var(--textNormal);
+        text-decoration: none;
+    }
+    a:link.customButton,
+    a:visited.customButton,
+    a:hover.customButton,
+    a:active.customButton {
+        color: var(--textNormal);
+        text-decoration: none;
+    }
+    a:hover.customButton {
+        text-decoration: underline;
+    }
+    form {
+        display: inline;
+    }
+    .customButton {
+        border: none;
+        color: var(--textNormal);
+        background: var(--gradientNormal);
+        padding: 10px;
+        cursor: pointer;
+        text-align: center;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 4px 2px;
+        border-radius: 10px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        width: 180px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .dropdown {
+        position: relative;
+        display: inline-block;
+        overflow: visible;               /* <‑‑ allow the menu to escape the container */
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;              /* keep it anchored to the button */
+        min-width: 200px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 9999;                   /* <‑‑ very high stack order */
+        background: var(--dropdownNormal);
+    }
+    .dropdown-content a {
+        color: var(--textDropdown);
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+    }
+    .customButton:hover {
+        text-decoration: underline;
+    }
+    .dropdown-content a:hover {
+        background: var(--dropdownHover);
+    }
+    .dropdown:hover .dropdown-content {
+        display: block;
+    }
+    .dropdown:hover .customButton {
+        text-decoration: underline;
+    }
+
+    }
+</style>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
+<div class="dropdown">
+    <button class="customButton">PLACEHOLDER⏷</button>
+    <div class="dropdown-content">
+        <a href="PLACEHOLDER">PLACEHOLDER</a>
+    </div>
+</div>
